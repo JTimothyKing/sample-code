@@ -26,10 +26,12 @@ This sequence lists 4 books of 8.5 inches each (or whatever unit) and 1 book of 
 
 my %num_of_height;
 for lines() {
-    if m/^ \s* (\d+[\.\d+]?) [\s* x \s* (\d+)]? / {
+    if m/^ \s* (\d+[\.\d+]?) [\s* x \s* (\d+)]? \s* $/ {
         my $height = +$0;
         my $num = +($1 || 1);
         %num_of_height{$height} += $num;
+    } elsif ! m/^\s*$/ {
+        note "Invalid line ignored: $_";
     }
 }
 
