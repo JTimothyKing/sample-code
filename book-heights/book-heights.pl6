@@ -35,37 +35,95 @@ for lines() {
     }
 }
 
-my @heights; #= book heights in order from shortest to tallest
+#| unique book heights seen, in order from shortest to tallest
+my @heights = sort { $^a <=> $^b }, keys %num_of_height;
+
+
 say "Histogram data:";
-for sort { $^a <=> $^b }, keys %num_of_height -> $height {
+for @heights -> $height {
     my $num = %num_of_height{$height};
     say "$height x $num";
-    @heights.push($height xx $num);
 }
 
+#####################################################################
+
+#| Display an actual histogram, with bars comprising ranges of book heights
+sub display_histogram (:%num_of_height, :$shortest, :$tallest, :$span_width,
+                       :$display_columns = 80) {
+    my @histogram_bars;
+    for $shortest, ($shortest + $span_width) ... $tallest -> $span_begin {
+        my $span_end = $span_begin + $span_width;
+        my $num = [+] (
+            %num_of_height{$_} if $span_begin <= $_ < $span_end for keys %num_of_height
+        );
+        @histogram_bars.push({
+            span_begin => $span_begin,
+            span_end => $span_end,
+            num => $num,
+        });
+    }
+
+    # The number of display columns used in the histogram =
+    #   25  # max number of static characters in each line
+    #   + floor( ([max] @histogram_bars.map(*.<num>) / $num_per_display_column )
+    #   + ([max] (@histogram_bars.map(*.<num>))>>.chars)
+    #
+    # Therefore, solving algebraically for $num_per_display_column, we get...
+    my $num_per_display_column = ceiling(
+        ([max] @histogram_bars.map(*.<num>)) /
+          ( $display_columns - 25 - ([max] (@histogram_bars.map(*.<num>))>>.chars) )
+    );
+
+    my sub n_books_str ($num) {
+        return "$num book{'s' if $num != 1}";
+    }
+
+    my sub height_span_str ($begin, $end) {
+        my ($begin_str, $end_str) = ( sprintf('%2.1f', $_) for $begin, $end );
+        return sprintf(' %4s ..^ %4s', $begin_str, $end_str);
+    }
+
+    say "";
+    say "  height range:     * = {n_books_str($num_per_display_column)}";
+
+    for @histogram_bars {
+        my ($span_begin, $span_end, $num) = $_<span_begin span_end num>;
+        say height_span_str($span_begin, $span_end), ': ',
+            '*' x ($num / $num_per_display_column),
+            " ({n_books_str($num)})";
+    }
+}
+
+display_histogram(
+    :%num_of_height, 
+    shortest => floor(@heights[0]),
+    tallest => ceiling(@heights[*-1]),
+    span_width => 0.5,
+);
+
+#####################################################################
 
 say "";
+
+#| all books' heights, in order from shortest to tallest
+my @all_heights = @heights >>xx<< %num_of_height{@heights};
 
 say "min = ", @heights[0];      # same as [min] @heights, because @heights is in order
 say "max = ", @heights[*-1];    # same as [max] @heights, because @heights is in order
 
-my $num_heights = @heights.elems;
+my $num_heights = @all_heights.elems;
 say "$num_heights measured";
 
 sub median (@a) {
     return ( @a[ @a.elems / 2 ] + @a[ @a.end / 2 ] ) / 2;
 }
 
-say "median = ", median(@heights);
+say "median = ", median(@all_heights);
 
-my $idx_median = @heights.end / 2;
-my $median_is_datum = @heights.end %% 2;
+my $idx_median = @all_heights.end / 2;
+my $median_is_datum = @all_heights.end %% 2;
 
-say "first quartile = ", median(@heights[0 .. $idx_median]);
-say "third quartile = ", median(@heights[ ($median_is_datum ?? $idx_median !! $idx_median+1) .. * ]);
-
-#say "";
-#say "All heights:";
-#say @heights.join("\n");
+say "first quartile = ", median(@all_heights[0 .. $idx_median]);
+say "third quartile = ", median(@all_heights[ ($median_is_datum ?? $idx_median !! $idx_median+1) .. * ]);
 
 # end
