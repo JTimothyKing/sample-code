@@ -6,8 +6,6 @@ use Benchmark ':hireswallclock';
 
 use File::Util;
 
-my $mark_start = Benchmark->new();
-
 my $f = File::Util->new({
     use_flock   => 0,
     onfail => sub {
@@ -25,6 +23,10 @@ my $perl_prefix_path = do {
     $path;
 };
 print STDERR "Scanning Perl prefix path $perl_prefix_path\n";
+
+##########
+
+my $mark_start = Benchmark->new();
 
 my @all_files;
 
@@ -45,6 +47,8 @@ print STDERR "$total_file_size bytes to read\n";
 
 my $mark_got_files = Benchmark->new();
 
+##########
+
 my $bytes_read = 0;
 for my $file (@all_files) {
     my $file_contents = $f->load_file( $file );
@@ -53,6 +57,8 @@ for my $file (@all_files) {
 print STDERR "$bytes_read bytes read\n";
 
 my $mark_end = Benchmark->new();
+
+##########
 
 print ' Scan time: ', timestr(timediff($mark_got_files, $mark_start)), "\n",
       ' Read time: ', timestr(timediff($mark_end, $mark_got_files)), "\n",
