@@ -8,11 +8,14 @@ use File::Find ();
 use File::Spec ();
 
 my $perl_prefix_path = do {
-    my $path = $^X;
-    my $bindir = '/bin/';
-    $path =~ s|$bindir ((?!$bindir).)* $||x
-        or die "cannot determine Perl install prefix\n";
-    $path;
+    my ($volume, $dir, $file) = File::Spec->splitpath($^X);
+    my @dirs = File::Spec->splitdir($dir);
+    while (1) {
+        die "cannot determine Perl install prefix\n" unless @dirs;
+        my $end_dir = pop @dirs;
+        last if $end_dir eq 'bin';
+    }
+    File::Spec->catpath( $volume, File::Spec->catdir(@dirs) );
 };
 print STDERR "Scanning Perl prefix path $perl_prefix_path\n";
 
