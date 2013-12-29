@@ -1,0 +1,61 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use Benchmark ':hireswallclock';
+
+use File::Util;
+
+my $mark_start = Benchmark->new();
+
+my $f = File::Util->new({
+    use_flock   => 0,
+    onfail => sub {
+        my $msg = shift;
+        $msg =~ s!\n*$!!; # because File::Util adds multiple newlines to the end
+        warn $msg, "\n";
+    },
+});
+
+my $perl_prefix_path = do {
+    my $path = $^X;
+    my $bindir = $f->SL . 'bin' . $f->SL;
+    $path =~ s|$bindir ((?!$bindir).)* $||x
+        or die "cannot determine Perl install prefix\n";
+    $path;
+};
+print STDERR "Scanning Perl prefix path $perl_prefix_path\n";
+
+my @all_files;
+
+my $total_file_size = 0;
+$f->list_dir( $perl_prefix_path => {
+    recurse => 1,
+    callback => sub {
+        my ( $selfdir, $subdirs, $files ) = @_;
+        FILE: for my $file (@$files) {
+            my $filesize = $f->size($file);
+            next FILE unless $filesize;
+            $total_file_size += $filesize;
+            push @all_files, $file;
+        }
+    },
+} );
+print STDERR "$total_file_size bytes to read\n";
+
+my $mark_got_files = Benchmark->new();
+
+my $bytes_read = 0;
+for my $file (@all_files) {
+    my $file_contents = $f->load_file( $file );
+    $bytes_read += length $file_contents;
+}
+print STDERR "$bytes_read bytes read\n";
+
+my $mark_end = Benchmark->new();
+
+print ' Scan time: ', timestr(timediff($mark_got_files, $mark_start)), "\n",
+      ' Read time: ', timestr(timediff($mark_end, $mark_got_files)), "\n",
+      'Total time: ', timestr(timediff($mark_end, $mark_start)), "\n";
+
+__END__
