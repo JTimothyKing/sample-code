@@ -3,11 +3,20 @@ use strict;
 use warnings;
 
 use Benchmark ':hireswallclock';
+use Getopt::Long;
 
 use File::Find ();
 use File::Spec ();
 
-my $perl_prefix_path = do {
+my $path_to_scan;
+my $scan_only;
+
+GetOptions(
+   'dir|d=s' => \$path_to_scan,
+   'scan-only' => \$scan_only,
+) or die "Error in command line arguments\n";
+
+$path_to_scan //= do {
     my ($volume, $dir, $file) = File::Spec->splitpath($^X);
     my @dirs = File::Spec->splitdir($dir);
     while (1) {
@@ -17,7 +26,7 @@ my $perl_prefix_path = do {
     }
     File::Spec->catpath( $volume, File::Spec->catdir(@dirs) );
 };
-print STDERR "Scanning Perl prefix path $perl_prefix_path\n";
+print STDERR "Scanning $path_to_scan\n";
 
 ##########
 
@@ -36,24 +45,27 @@ File::Find::find({
             push @all_files, $file;
         }
     },
-}, $perl_prefix_path);
+}, $path_to_scan);
 print STDERR "$total_file_size bytes to read\n";
 
 my $mark_got_files = Benchmark->new();
 
 ##########
 
-my $bytes_read = 0;
-FILE: for my $file (@all_files) {
-    open my $fh, '<', $file
-        or warn("cannot open file '$file'\n"), next FILE;
-    BLOCK: while (1) {
-        my $data;
-        read($fh, $data, 32768) or last BLOCK;
-        $bytes_read += length $data;
+unless ($scan_only) {
+    my $bytes_read = 0;
+    FILE: for my $file (@all_files) {
+        open my $fh, '<', $file
+            or warn("cannot open file '$file'\n"), next FILE;
+        BLOCK: while (1) {
+            my $data;
+            read($fh, $data, 32768) or last BLOCK;
+            $bytes_read += length $data;
+        }
+        close $fh;
     }
+    print STDERR "$bytes_read bytes read\n";
 }
-print STDERR "$bytes_read bytes read\n";
 
 my $mark_end = Benchmark->new();
 

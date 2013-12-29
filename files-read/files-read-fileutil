@@ -3,8 +3,17 @@ use strict;
 use warnings;
 
 use Benchmark ':hireswallclock';
+use Getopt::Long;
 
 use File::Util;
+
+my $path_to_scan;
+my $scan_only;
+
+GetOptions(
+   'dir|d=s' => \$path_to_scan,
+   'scan-only' => \$scan_only,
+) or die "Error in command line arguments\n";
 
 my $f = File::Util->new({
     use_flock   => 0,
@@ -15,14 +24,14 @@ my $f = File::Util->new({
     },
 });
 
-my $perl_prefix_path = do {
+$path_to_scan //= do {
     my $path = $^X;
     my $bindir = $f->SL . 'bin' . $f->SL;
     $path =~ s|$bindir ((?!$bindir).)* $||x
         or die "cannot determine Perl install prefix\n";
     $path;
 };
-print STDERR "Scanning Perl prefix path $perl_prefix_path\n";
+print STDERR "Scanning $path_to_scan\n";
 
 ##########
 
@@ -31,7 +40,7 @@ my $mark_start = Benchmark->new();
 my @all_files;
 
 my $total_file_size = 0;
-$f->list_dir( $perl_prefix_path => {
+$f->list_dir( $path_to_scan => {
     recurse => 1,
     callback => sub {
         my ( $selfdir, $subdirs, $files ) = @_;
@@ -49,12 +58,14 @@ my $mark_got_files = Benchmark->new();
 
 ##########
 
-my $bytes_read = 0;
-for my $file (@all_files) {
-    my $file_contents = $f->load_file( $file );
-    $bytes_read += length $file_contents;
+unless ($scan_only) {
+    my $bytes_read = 0;
+    for my $file (@all_files) {
+        my $file_contents = $f->load_file( $file );
+        $bytes_read += length $file_contents;
+    }
+    print STDERR "$bytes_read bytes read\n";
 }
-print STDERR "$bytes_read bytes read\n";
 
 my $mark_end = Benchmark->new();
 
